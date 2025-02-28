@@ -16,31 +16,44 @@
 #include <ctype.h>
 
 typedef enum {
-STATE_RUNNING,
-STATE_SLEEPING,
-STATE_DISK_SLEEP,
-STATE_STOPPED,
-STATE_ZOMBIE
+    STATE_RUNNING = 'R',
+    STATE_SLEEPING = 'S',
+    STATE_DISK_SLEEP = 'D',
+    STATE_STOPPED = 'T',
+    STATE_ZOMBIE = 'Z'
 } process_state;
 
-
-
-
 typedef struct {
-int pid;
-char name[256];
-process_state state;
-uint64_t memory;
-double cpu_usage;
-
+    int pid;
+    char name[256];
+    process_state state;
+    uint64_t memory;
+    double cpu_usage;
+    int ppid;
+    int pgrp;
+    int session;
+    int tty_nr;
+    int tpgid;
+    unsigned int flags;
+    uint64_t minflt;
+    uint64_t cminflt;
+    uint64_t majflt;
+    uint64_t cmajflt;
+    uint64_t utime;
+    uint64_t stime;
+    int priority;
+    int nice;
+    int num_threads;
+    uint64_t starttime;
+    uint64_t vsize;
+    uint64_t rsslim;
 } process;
 
-process_state parse_process_state(char state);
-const char *get_process_state_string(process_state state);
-void fill_process_info(process *p_list, size_t count);
 size_t get_process_count();
 void free_processes(process **p, size_t count);
 process *allocate_processes(size_t count);
 process* parse_processes(process* p_list, size_t max_size);
-void print_processes(process* p_list, size_t size);
+void parse_stat(const char *stat_data, process *proc);
+char* read_proc_stat(int pid);
+
 #endif

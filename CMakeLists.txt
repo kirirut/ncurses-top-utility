@@ -9,10 +9,12 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(SOURCES
     src/main.c
     src/process.c
+    src/graph.c
 )
 
 set(HEADERS
     include/process.h
+    include/graph.h
 )
 
 add_executable("ncurses_top_utility" ${SOURCES} ${HEADERS})

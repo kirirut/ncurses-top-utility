@@ -1,25 +1,29 @@
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "process.h"
+#include <string.h>
+#include <unistd.h>
+#include "graph.h"
+
+
+
 
 int main() {
-    initscr();  
-    size_t size = get_process_count();
-    process *p_list = allocate_processes(size);
-    if (!p_list) {
-        endwin(); 
-        fprintf(stderr, "Не удалось выделить память\n");
-        return EXIT_FAILURE;
+    initscr();  // Инициализация ncurses
+    noecho();
+    cbreak();
+    curs_set(0);
+
+    while (1) {
+        clear();  // Очистка экрана
+
+        draw_memory_bar();  // Отображение полоски для памяти
+        draw_disk_bar();    // Отображение полоски для диска
+
+        refresh();  // Обновление экрана
+        usleep(1000000);  // Пауза 1 секунда (обновление каждые 1 секунду)
     }
-    for (size_t i = 0; i < size; i++) {
-        printf("PID: %d | Name: %s | State: %c | Memory: %lu KB | CPU: %.2f s\n",
-               p_list[i].pid, p_list[i].name, p_list[i].state, p_list[i].memory, p_list[i].cpu_usage);
-    }
-    printw("Num of process: %zu\n", size);
-    refresh(); 
-    getch();  
-    free(p_list);
-    endwin();  
+
+    endwin();  // Завершение работы с ncurses
     return 0;
 }

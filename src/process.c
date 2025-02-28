@@ -1,30 +1,5 @@
 #include "process.h"
 
-process_state parse_process_state(char state)
-{
-switch( state ) 
-    {
-    case 'R': return STATE_RUNNING;
-    case 'S': return STATE_SLEEPING;
-    case 'D': return STATE_DISK_SLEEP;
-    case 'T': return STATE_STOPPED;
-    case 'Z': return STATE_ZOMBIE;
-    default: return STATE_SLEEPING;
-    }   
-}
-
-const char *get_process_state_string(process_state state)
-{
-switch (state)
-{
-case STATE_RUNNING: return "Running";
-case STATE_SLEEPING: return "Sleeping";
-case STATE_DISK_SLEEP: return "Disk sleep";
-case STATE_STOPPED: return "Stopped";
-case STATE_ZOMBIE: return "Unknown";
-}
-}
- 
  size_t get_process_count()
  {
  DIR *dir = opendir("/proc");
@@ -92,66 +67,56 @@ char* read_proc_stat(int pid) {
     return buffer;
 }
 
-// Парсинг строки stat в структуру process
 void parse_stat(const char *stat_data, process *proc) {
-    char buffer[1024];
-    strncpy(buffer, stat_data, sizeof(buffer) - 1);
-    buffer[sizeof(buffer) - 1] = '\0';
+    int pid, ppid, pgrp, session, tty_nr, tpgid, priority, nice, num_threads;
+    char name[256];
+    char state;
+    unsigned int flags;
+    uint64_t minflt, cminflt, majflt, cmajflt, utime, stime, starttime, vsize, rsslim, rss;
 
-    char *token;
-    char *saveptr;
-    int index = 1;
-
-    token = strtok_r(buffer, " ", &saveptr);
-    if (!token) return;
+    sscanf(stat_data, "%d %255s %c %d %d %d %d %d %u %lu %lu %lu %lu %lu %lu %*d %*d %d %d %d %lu %lu %lu %lu",
+           &pid, name, &state, &ppid, &pgrp, &session, &tty_nr, &tpgid, &flags, &minflt, &cminflt, &majflt, &cmajflt,
+           &utime, &stime, &priority, &nice, &num_threads, &starttime, &vsize, &rsslim, &rss);
     
-    proc->pid = atoi(token);
-
-    // Парсим имя процесса (COMM)
-    token = strchr(saveptr, '(') + 1;
-    char *end = strchr(token, ')');
-    if (end) {
-        *end = '\0';
-        strncpy(proc->name, token, sizeof(proc->name) - 1);
-        proc->name[sizeof(proc->name) - 1] = '\0';
-        saveptr = end + 2;
-    } else {
-        strcpy(proc->name, "UNKNOWN");
+    // Убираем круглые скобки у имени
+    size_t len = strlen(name);
+    if (name[0] == '(' && name[len - 1] == ')') {
+        memmove(name, name + 1, len - 2);
+        name[len - 2] = '\0';
     }
 
-    // Парсим state
-    token = strtok_r(NULL, " ", &saveptr);
-    if (token) proc->state = (process_state)token[0];
-
-    // Пропускаем 21 поле до memory (RSS, 24-е поле)
-    for (int i = 4; i < 24; i++) {
-        token = strtok_r(NULL, " ", &saveptr);
-        if (!token) return;
-    }
-    proc->memory = strtoull(token, NULL, 10);
-
-    // Парсим CPU время (utime + stime, 14-е и 15-е поля)
-    uint64_t utime, stime;
-    for (int i = 24; i < 14; i++) {
-        token = strtok_r(NULL, " ", &saveptr);
-        if (!token) return;
-    }
-    utime = strtoull(token, NULL, 10);
-    token = strtok_r(NULL, " ", &saveptr);
-    if (!token) return;
-    stime = strtoull(token, NULL, 10);
-
-    // Вычисляем примерную загрузку CPU
+    proc->pid = pid;
+    strncpy(proc->name, name, sizeof(proc->name) - 1);
+    proc->name[sizeof(proc->name) - 1] = '\0';
+    proc->state = (process_state)state;
+    proc->memory = rss * sysconf(_SC_PAGESIZE);
     proc->cpu_usage = (double)(utime + stime) / sysconf(_SC_CLK_TCK);
+    proc->ppid = ppid;
+    proc->pgrp = pgrp;
+    proc->session = session;
+    proc->tty_nr = tty_nr;
+    proc->tpgid = tpgid;
+    proc->flags = flags;
+    proc->minflt = minflt;
+    proc->cminflt = cminflt;
+    proc->majflt = majflt;
+    proc->cmajflt = cmajflt;
+    proc->utime = utime;
+    proc->stime = stime;
+    proc->priority = priority;
+    proc->nice = nice;
+    proc->num_threads = num_threads;
+    proc->starttime = starttime;
+    proc->vsize = vsize;
+    proc->rsslim = rsslim;
 }
 
-// Перебор процессов в /proc и заполнение массива структур
 process* parse_processes(process* p_list, size_t max_size) {
     struct dirent *entry;
     DIR *dp = opendir("/proc");
     if (!dp) {
         perror("Ошибка открытия /proc");
-        return 0;
+        return NULL;
     }
 
     size_t index = 0;
@@ -169,17 +134,4 @@ process* parse_processes(process* p_list, size_t max_size) {
 
     closedir(dp);
     return p_list;
-}
-void print_processes(process* p_list, size_t size) {
-    printf("%-6s %-25s %-10s %-10s %-10s\n", "PID", "Name", "State", "Memory", "CPU (%)");
-    printf("--------------------------------------------------------------\n");
-    for (size_t i = 0; i < size; i++) {
-        const char* state_str[] = {"RUNNING", "SLEEPING", "DISK_SLEEP", "STOPPED", "ZOMBIE", "UNKNOWN"};
-        printf("%-6d %-25s %-10s %-10lu %-10.2f\n",
-               p_list[i].pid,
-               p_list[i].name,
-               state_str[p_list[i].state],
-               p_list[i].memory,
-               p_list[i].cpu_usage);
-    }
 }
