@@ -22,5 +22,8 @@ void draw_process_table(WINDOW *table_win, process *processes, size_t count);
 void init_process_table(WINDOW *table_win);
 void update_process_table(WINDOW *table_win, process *processes, size_t count);
 int handle_menu(WINDOW *menu_win, MenuItem *menu_items, int num_menu_items);
+void handle_menu_action(int choice);
+void display_help_window();
+void draw_menu_bar(WINDOW *menu_win, MenuItem *items, int num_items);
 
 #endif

@@ -3,6 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 #include "graph.h"
+#include "process.h"
+
+#define MENU_BAR_HEIGHT 3
 
 int main() {
     initscr();
@@ -10,8 +13,13 @@ int main() {
     noecho();
     keypad(stdscr, TRUE);
     curs_set(0);
+    start_color();
+    init_pair(1, COLOR_GREEN, COLOR_BLACK);
 
-    // Menu items
+    int max_y, max_x;
+    getmaxyx(stdscr, max_y, max_x);
+
+    // Menu
     MenuItem menu_items[] = {
         {"Help"},
         {"Search"},
@@ -19,22 +27,43 @@ int main() {
         {"Sort"},
         {"Options"},
         {"Kill"},
-        {"Exit"}
+        {"Quit"}
     };
     int num_menu_items = sizeof(menu_items) / sizeof(menu_items[0]);
-    int menu_height, menu_width, menu_start_y, menu_start_x;
-    getmaxyx(stdscr, menu_height, menu_width);
-    menu_start_y = 0;
-    menu_start_x = 0;
-    WINDOW *menu_win = newwin(menu_height, menu_width, menu_start_y, menu_start_x);
+    WINDOW *menu_win = subwin(stdscr, MENU_BAR_HEIGHT, max_x, max_y - MENU_BAR_HEIGHT, 0);
+    if (menu_win == NULL) {
+        endwin();
+        fprintf(stderr, "Error creating subwindow\n");
+        return 1;
+    }
     keypad(menu_win, TRUE);
+    wbkgd(menu_win, COLOR_PAIR(1));
+    box(menu_win, 0, 0);
+    draw_menu_bar(menu_win, menu_items, num_menu_items);
+
+    // Process table
+    WINDOW *table_win = subwin(stdscr, max_y - MENU_BAR_HEIGHT - 1, max_x, 1, 0);
+    if (table_win == NULL) {
+        endwin();
+        fprintf(stderr, "Error creating subwindow\n");
+        return 1;
+    }
+    keypad(table_win, TRUE);
+
+    size_t process_count;
+    process *p_list = NULL;
 
     int choice;
     while (1) {
+        process_count = get_process_count();
+        p_list = allocate_processes(process_count);
+        parse_processes(p_list, process_count);
+        update_process_table(table_win, p_list, process_count);
         choice = handle_menu(menu_win, menu_items, num_menu_items);
         if (choice == 1) {
             // Help
-            mvwprintw(stdscr, 0, 0, "Help selected");
+            display_help_window();
+            draw_menu_bar(menu_win, menu_items, num_menu_items);
         } else if (choice == 2) {
             // Search
             mvwprintw(stdscr, 0, 0, "Search selected");
@@ -47,17 +76,16 @@ int main() {
         } else if (choice == 5) {
             // Options
             mvwprintw(stdscr, 0, 0, "Options selected");
-        }
-        else if (choice == 6) {
-            // Options
+        } else if (choice == 6) {
+            // Kill
             mvwprintw(stdscr, 0, 0, "Kill selected");
-        } 
-        else if (choice == 7) {
+        } else if (choice == 7) {
             // Exit
             mvwprintw(stdscr, 0, 0, "Exit selected");
             break;
         }
         refresh();
+        free_processes(&p_list, process_count);
     }
 
     endwin();

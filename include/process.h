@@ -16,11 +16,17 @@
 #include <ctype.h>
 
 typedef enum {
-    STATE_RUNNING = 'R',
-    STATE_SLEEPING = 'S',
-    STATE_DISK_SLEEP = 'D',
-    STATE_STOPPED = 'T',
-    STATE_ZOMBIE = 'Z'
+    PROCESS_STATE_RUNNING = 'R',
+    PROCESS_STATE_SLEEPING = 'S',
+    PROCESS_STATE_DISK_SLEEP = 'D',
+    PROCESS_STATE_ZOMBIE = 'Z',
+    PROCESS_STATE_STOPPED = 'T',
+    PROCESS_STATE_TRACING_STOP = 't',
+    PROCESS_STATE_WAKING = 'W',
+    PROCESS_STATE_PARKED = 'P',
+    PROCESS_STATE_IDLE = 'I',
+    PROCESS_STATE_DEAD = 'X',
+    PROCESS_STATE_UNKNOWN = '?'
 } process_state;
 
 typedef struct {
@@ -55,5 +61,6 @@ process *allocate_processes(size_t count);
 process* parse_processes(process* p_list, size_t max_size);
 void parse_stat(const char *stat_data, process *proc);
 char* read_proc_stat(int pid);
+
 
 #endif
