@@ -1,70 +1,74 @@
 #include "graph.h"
-void draw_memory_bar() {
-    FILE *file = fopen("/proc/meminfo", "r");
-    if (!file) {
-        perror("Ошибка открытия файла /proc/meminfo");
-        return;
-    }
 
-    long total_memory = 0;
-    long free_memory = 0;
-    long available_memory = 0;
+void draw_menu(WINDOW *menu_win, MenuItem *items, int num_items, int highlight) {
+    int x, y, i;
 
-    char line[256];
-    while (fgets(line, sizeof(line), file)) {
-        if (strncmp(line, "MemTotal:", 9) == 0) {
-            sscanf(line, "MemTotal: %ld kB", &total_memory);
-        } else if (strncmp(line, "MemFree:", 8) == 0) {
-            sscanf(line, "MemFree: %ld kB", &free_memory);
-        } else if (strncmp(line, "MemAvailable:", 13) == 0) {
-            sscanf(line, "MemAvailable: %ld kB", &available_memory);
+    x = 2;
+    y = 2;
+    box(menu_win, 0, 0);
+    for (i = 0; i < num_items; ++i) {
+        if (highlight == i + 1) {
+            wattron(menu_win, A_REVERSE);
         }
-
-        if (total_memory && free_memory && available_memory) {
-            break;
-        }
+        mvwprintw(menu_win, y, x, items[i].label);
+        wattroff(menu_win, A_REVERSE);
+        ++y;
     }
-
-    fclose(file);
-
-    // Расчет использования памяти
-    long used_memory = total_memory - available_memory;
-    double memory_usage = (double)used_memory / total_memory * 100;
-
-    // Отображение полоски загрузки
-    int bar_length = 40;  // Длина полоски
-    int progress = (int)(memory_usage / 100 * bar_length);
-
-    mvprintw(1, 0, "Memory Usage:[");
-    for (int i = 0; i < bar_length; i++) {
-        if (i < progress)
-            mvaddch(1, i + 13, '#');  // Заполнение полоски символами #
-        else
-            mvaddch(1, i + 13, ' ');  // Пустое пространство
-    }
-    mvprintw(1, 55, "] %.2f%%", memory_usage);  // Отображение процента
+    wrefresh(menu_win);
 }
-void draw_disk_bar() {
-    FILE *file = popen("df --output=pcent / | tail -n 1", "r");
-    if (!file) {
-        perror("Ошибка получения информации о диске");
-        return;
+
+void draw_button(WINDOW *button_win, Button button, int highlight) {
+    int x, y;
+    x = 2;
+    y = 1;
+
+    box(button_win, 0, 0);
+    if (highlight) {
+        wattron(button_win, A_REVERSE);
     }
+    mvwprintw(button_win, y, x, button.label);
+    wattroff(button_win, A_REVERSE);
+    wrefresh(button_win);
+}
 
-    int disk_usage = 0;
-    fscanf(file, "%d", &disk_usage);
-    fclose(file);
+int handle_menu(WINDOW *menu_win, MenuItem *menu_items, int num_menu_items) {
+    int highlight = 1;
+    int choice = 0;
+    int c;
+    draw_menu(menu_win, menu_items, num_menu_items, highlight);
 
-    // Отображение полоски загрузки
-    int bar_length = 40;  // Длина полоски
-    int progress = (int)(disk_usage / 100.0 * bar_length);
-
-    mvprintw(3, 0, "Disk Usage: [");
-    for (int i = 0; i < bar_length; i++) {
-        if (i < progress)
-            mvaddch(3, i + 13, '#');  // Заполнение полоски символами #
-        else
-            mvaddch(3, i + 13, ' ');  // Пустое пространство
+    while (1) {
+        c = wgetch(menu_win);
+        switch (c) {
+            case KEY_UP:
+                if (highlight == 1)
+                    highlight = num_menu_items;
+                else
+                    --highlight;
+                break;
+            case KEY_DOWN:
+                if (highlight == num_menu_items)
+                    highlight = 1;
+                else
+                    ++highlight;
+                break;
+            case 10: // Enter key
+                choice = highlight;
+                break;
+            case KEY_RESIZE:
+                // Handle window resize
+                int menu_height, menu_width;
+                getmaxyx(stdscr, menu_height, menu_width);
+                wresize(menu_win, menu_height, menu_width);
+                mvwin(menu_win, 0, 0);
+                wclear(menu_win);
+                break;
+            default:
+                break;
+        }
+        draw_menu(menu_win, menu_items, num_menu_items, highlight);
+        if (choice != 0) {
+            return choice;
+        }
     }
-    mvprintw(3, 55, "] %d%%", disk_usage);  // Отображение процента
 }
