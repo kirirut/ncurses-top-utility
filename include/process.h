@@ -8,12 +8,7 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <dirent.h>
-#include <ctype.h>
+#include <time.h>
 
 typedef enum {
     PROCESS_STATE_RUNNING = 'R',
@@ -53,14 +48,30 @@ typedef struct {
     uint64_t starttime;
     uint64_t vsize;
     uint64_t rsslim;
+    // Added for CPU usage calculation
+    uint64_t prev_utime;
+    uint64_t prev_stime;
+    time_t last_update;
 } process;
+
+typedef enum {
+    SORT_BY_PID,
+    SORT_BY_NAME,
+    SORT_BY_CPU,
+    SORT_BY_MEMORY
+} SortCriterion;
 
 size_t get_process_count();
 void free_processes(process **p, size_t count);
 process *allocate_processes(size_t count);
-process* parse_processes(process* p_list, size_t max_size);
+process* parse_processes(process* p_list, size_t max_size, SortCriterion criterion);
 void parse_stat(const char *stat_data, process *proc);
 char* read_proc_stat(int pid);
+int (*compare_processes(SortCriterion criterion))(const void *, const void *);
 
+int compare_pid(const void *a, const void *b);
+int compare_name(const void *a, const void *b);
+int compare_cpu(const void *a, const void *b);
+int compare_memory(const void *a, const void *b);
 
 #endif

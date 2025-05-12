@@ -7,17 +7,14 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(SOURCES
-    src/main.c
+    src/main.c 
     src/process.c
-    src/graph.c
+    src/ui.c
 )
 
-set(HEADERS
-    include/process.h
-    include/graph.h
-)
+include_directories(include)
 
-add_executable("ncurses_top_utility" ${SOURCES} ${HEADERS})
+add_executable(ncurses_top_utility ${SOURCES})
 
 target_include_directories("ncurses_top_utility" PRIVATE include)
 
