@@ -248,9 +248,6 @@ int display_confirmation_panel(UIWindow *ui, int pid, const char *name) {
 }
 
 void display_core_stats_panel(UIWindow *ui) {
-    FILE *stat_file = fopen("/proc/stat", "r");
-    if (!stat_file) return;
-
     // Initialize color pairs for progress bars
     init_pair(2, COLOR_RED, COLOR_BLACK);    // Red for high usage (>80%)
     init_pair(3, COLOR_YELLOW, COLOR_BLACK); // Yellow for medium usage (>55%)
@@ -272,52 +269,70 @@ void display_core_stats_panel(UIWindow *ui) {
         mvwprintw(stats, 2, i, "_");
     }
 
-    char line[256];
-    int core_num = 0;
-    while (fgets(line, sizeof(line), stat_file)) {
-        if (strncmp(line, "cpu", 3) == 0 && isdigit(line[3])) {
-            unsigned long user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice;
-            sscanf(line, "cpu%d %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu", 
-                   &core_num, &user, &nice, &system, &idle, &iowait, &irq, &softirq, &steal, &guest, &guest_nice);
-            unsigned long total = user + nice + system + idle + iowait + irq + softirq + steal + guest + guest_nice;
-            unsigned long work = total - idle; // Non-idle time
-            double usage = (double)(work * 100) / total;
-
-            // Display core usage percentage
-            mvwprintw(stats, core_num + 3, 1, "Core %d: %.2f%%", core_num, usage);
-
-            // Draw progress bar
-            int bar_width = 40; // Total width of the progress bar
-            int filled = (int)(usage * bar_width / 100.0); // Number of filled positions
-            int y = core_num + 3;
-            int x = 15; // Start position of the bar
-
-            // Select color based on usage
-            int color_pair;
-            if (usage > 80.0) {
-                color_pair = 2; // Red for high usage
-            } else if (usage > 55.0) {
-                color_pair = 3; // Yellow for medium usage
-            } else {
-                color_pair = 4; // Green for low usage
+    while (1) {
+        // Clear the stats area below the title and separator
+        for (int y = 3; y < 20; y++) {
+            for (int x = 1; x < 59; x++) {
+                mvwprintw(stats, y, x, " ");
             }
+        }
 
-            wattron(stats, COLOR_PAIR(color_pair));
-            for (int i = 0; i < bar_width; i++) {
-                if (i < filled) {
-                    mvwprintw(stats, y, x + i, "|");
-                } else {
-                    mvwprintw(stats, y, x + i, "-");
+        FILE *stat_file = fopen("/proc/stat", "r");
+        if (stat_file) {
+            char line[256];
+            int core_num = 0;
+            while (fgets(line, sizeof(line), stat_file)) {
+                if (strncmp(line, "cpu", 3) == 0 && isdigit(line[3])) {
+                    unsigned long user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice;
+                    sscanf(line, "cpu%d %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu", 
+                           &core_num, &user, &nice, &system, &idle, &iowait, &irq, &softirq, &steal, &guest, &guest_nice);
+                    unsigned long total = user + nice + system + idle + iowait + irq + softirq + steal + guest + guest_nice;
+                    unsigned long work = total - idle; // Non-idle time
+                    double usage = (double)(work * 100) / total;
+
+                    // Display core usage percentage
+                    mvwprintw(stats, core_num + 3, 1, "Core %d: %.2f%%", core_num, usage);
+
+                    // Draw progress bar
+                    int bar_width = 40; // Total width of the progress bar
+                    int filled = (int)(usage * bar_width / 100.0); // Number of filled positions
+                    int y = core_num + 3;
+                    int x = 15; // Start position of the bar
+
+                    // Select color based on usage
+                    int color_pair;
+                    if (usage > 80.0) {
+                        color_pair = 2; // Red for high usage
+                    } else if (usage > 55.0) {
+                        color_pair = 3; // Yellow for medium usage
+                    } else {
+                        color_pair = 4; // Green for low usage
+                    }
+
+                    wattron(stats, COLOR_PAIR(color_pair));
+                    for (int i = 0; i < bar_width; i++) {
+                        if (i < filled) {
+                            mvwprintw(stats, y, x + i, "|");
+                        } else {
+                            mvwprintw(stats, y, x + i, "-");
+                        }
+                    }
+                    wattroff(stats, COLOR_PAIR(color_pair));
                 }
             }
-            wattroff(stats, COLOR_PAIR(color_pair));
+            fclose(stat_file);
+        }
+
+        wrefresh(stats);
+
+        // Check for key press to exit (non-blocking with 1-second timeout)
+        timeout(1000); // 1-second timeout
+        int ch = getch();
+        if (ch != ERR) {
+            break; // Exit on any key press
         }
     }
-    fclose(stat_file);
 
-    wrefresh(stats);
-    timeout(-1); // Blocking mode for key press
-    getch();
     timeout(100); // Restore non-blocking mode
     delwin(stats);
     touchwin(ui->win);
