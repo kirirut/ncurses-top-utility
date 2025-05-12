@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
 
 typedef enum {
     PROCESS_STATE_RUNNING = 'R',
@@ -68,6 +69,7 @@ process* parse_processes(process* p_list, size_t max_size, SortCriterion criteri
 void parse_stat(const char *stat_data, process *proc);
 char* read_proc_stat(int pid);
 int (*compare_processes(SortCriterion criterion))(const void *, const void *);
+int kill_process(int pid);
 
 int compare_pid(const void *a, const void *b);
 int compare_name(const void *a, const void *b);

@@ -198,3 +198,7 @@ int compare_cpu(const void *a, const void *b) {
 int compare_memory(const void *a, const void *b) {
     return (int)(((process *)b)->memory - ((process *)a)->memory);
 }
+
+int kill_process(int pid) {
+    return kill(pid, SIGTERM);
+}
