@@ -146,7 +146,8 @@ void display_help_panel(UIWindow *ui) {
     mvwprintw(help, 7, 1, "c: Sort by CPU");
     mvwprintw(help, 8, 1, "m: Sort by Memory");
     mvwprintw(help, 9, 1, "F2: Core Stats");
-    mvwprintw(help, 10, 1, "F9: Kill Process");
+    mvwprintw(help, 10, 1, "F3: Process Details");
+    mvwprintw(help, 11, 1, "F9: Kill Process");
     wrefresh(help);
 
     // Temporarily set blocking mode to wait for key press
