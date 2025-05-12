@@ -1,5 +1,4 @@
 #include "graph.h"
-#define MENU_BAR_HEIGHT 3
 
 void draw_menu_bar(WINDOW *menu_win, MenuItem *items, int num_items) {
     int x, y, i;
