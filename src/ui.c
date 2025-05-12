@@ -89,7 +89,7 @@ void update_top_panel(UIWindow *ui) {
         closedir(dir);
     }
 
-    mvwprintw(top, 0, 0, "Mem: %.2fG/%.2fG | Tasks: %d, %lu thr, 1 running | Load average: %.2f %.2f %.2f | Uptime: %02d:%02d:%02d",
+    mvwprintw(top, 0, 0, "Mem: %.2fG/%.2fG | Tasks: %d, %lu thr, 1 run | Load: %.2f %.2f %.2f | Up: %02d:%02d:%02d",
               mem_used, mem_total_gb, tasks_total, total_threads, load1, load5, load15, hours, minutes, seconds);
 
     wattroff(top, COLOR_PAIR(1));
@@ -109,30 +109,38 @@ void display_processes(UIWindow *ui, process *p_list, size_t count, SortCriterio
         if (i == ui->selected_process) {
             wattron(ui->win, A_REVERSE);
         }
-        mvwprintw(ui->win, i - ui->scroll_offset + 1, 1, "PID: %d | Name: %s | CPU: %.2f%% | Memory: %lu KB",
+        mvwprintw(ui->win, i - ui->scroll_offset + 1, 1, "PID: %d | Name: %s | CPU: %.2f%% | Mem: %lu KB",
                   p_list[i].pid, p_list[i].name, p_list[i].cpu_usage, p_list[i].memory);
         wattroff(ui->win, A_REVERSE);
     }
 
-    mvwprintw(ui->win, 0, 1, "Sorted by: %s | Page %d/%d", 
+    mvwprintw(ui->win, 0, 1, "Sort: %s | Page %d/%d", 
               criterion == SORT_BY_PID ? "PID" : criterion == SORT_BY_NAME ? "Name" : 
-              criterion == SORT_BY_CPU ? "CPU" : "Memory", current_page + 1, total_pages);
+              criterion == SORT_BY_CPU ? "CPU" : "Mem", current_page + 1, total_pages);
     wrefresh(ui->win);
 }
 
 void display_help_panel(UIWindow *ui) {
-    WINDOW *help = newwin(10, 40, (ui->height - 10) / 2 + ui->starty, (ui->width - 40) / 2);
+    int help_width = 50; // Widened window
+    int help_height = 11; // Adjusted for new line
+    WINDOW *help = newwin(help_height, help_width, (ui->height - help_height) / 2 + ui->starty, (ui->width - help_width) / 2);
     box(help, 0, 0);
-    mvwprintw(help, 1, 1, "Help - Key Bindings");
-    mvwprintw(help, 2, 1, "-----------------");
+
+    // Center the title
+    const char *title = "Help - Key Bindings";
+    int title_len = strlen(title);
+    int title_x = (help_width - title_len) / 2;
+    mvwprintw(help, 1, title_x, "%s", title);
+
+    mvwprintw(help, 2, 1, "------------------");
     mvwprintw(help, 3, 1, "Up/Down: Navigate");
     mvwprintw(help, 4, 1, "PgUp/PgDn: Scroll");
     mvwprintw(help, 5, 1, "p: Sort by PID");
     mvwprintw(help, 6, 1, "n: Sort by Name");
     mvwprintw(help, 7, 1, "c: Sort by CPU");
     mvwprintw(help, 8, 1, "m: Sort by Memory");
-    mvwprintw(help, 9, 1, "F9: Kill Process");
-    mvwprintw(help, 10, 1, "q: Quit");
+    mvwprintw(help, 9, 1, "F2: Core Stats"); // Added F2 keybinding
+    mvwprintw(help, 10, 1, "F9: Kill Process");
     wrefresh(help);
 
     // Temporarily set blocking mode to wait for key press
@@ -190,6 +198,72 @@ int display_confirmation_panel(UIWindow *ui, int pid, const char *name) {
     touchwin(ui->win);
     wrefresh(ui->win);
     return confirmed;
+}
+
+void display_core_stats_panel(UIWindow *ui) {
+    FILE *stat_file = fopen("/proc/stat", "r");
+    if (!stat_file) return;
+
+    // Initialize more color pairs for progress bars
+    init_pair(2, COLOR_RED, COLOR_BLACK);    // Red for high usage
+    init_pair(3, COLOR_YELLOW, COLOR_BLACK); // Yellow for medium usage
+    init_pair(4, COLOR_GREEN, COLOR_BLACK);  // Green for low usage
+
+    WINDOW *stats = newwin(20, 60, (ui->height - 20) / 2 + ui->starty, (ui->width - 60) / 2);
+    box(stats, 0, 0);
+    mvwprintw(stats, 1, 1, "Core Statistics");
+    mvwprintw(stats, 2, 1, "---------------");
+
+    char line[256];
+    int core_num = 0;
+    while (fgets(line, sizeof(line), stat_file)) {
+        if (strncmp(line, "cpu", 3) == 0 && isdigit(line[3])) {
+            unsigned long user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice;
+            sscanf(line, "cpu%d %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu", 
+                   &core_num, &user, &nice, &system, &idle, &iowait, &irq, &softirq, &steal, &guest, &guest_nice);
+            unsigned long total = user + nice + system + idle + iowait + irq + softirq + steal + guest + guest_nice;
+            unsigned long work = total - idle; // Non-idle time
+            double usage = (double)(work * 100) / total;
+
+            // Display core usage percentage
+            mvwprintw(stats, core_num + 3, 1, "Core %d: %.2f%%", core_num, usage);
+
+            // Draw progress bar
+            int bar_width = 40; // Total width of the progress bar
+            int filled = (int)(usage * bar_width / 100.0); // Number of filled positions
+            int y = core_num + 3;
+            int x = 15; // Start position of the bar
+
+            // Select color based on usage
+            int color_pair;
+            if (usage >= 75.0) {
+                color_pair = 2; // Red for high usage
+            } else if (usage >= 50.0) {
+                color_pair = 3; // Yellow for medium usage
+            } else {
+                color_pair = 4; // Green for low usage
+            }
+
+            wattron(stats, COLOR_PAIR(color_pair));
+            for (int i = 0; i < bar_width; i++) {
+                if (i < filled) {
+                    mvwprintw(stats, y, x + i, "|");
+                } else {
+                    mvwprintw(stats, y, x + i, "-");
+                }
+            }
+            wattroff(stats, COLOR_PAIR(color_pair));
+        }
+    }
+    fclose(stat_file);
+
+    wrefresh(stats);
+    timeout(-1); // Blocking mode for key press
+    getch();
+    timeout(100); // Restore non-blocking mode
+    delwin(stats);
+    touchwin(ui->win);
+    wrefresh(ui->win);
 }
 
 void handle_input(UIWindow *ui, process *p_list, size_t count) {
@@ -257,6 +331,9 @@ void handle_input(UIWindow *ui, process *p_list, size_t count) {
                 break;
             case KEY_F(1):
                 display_help_panel(ui);
+                break;
+            case KEY_F(2):
+                display_core_stats_panel(ui);
                 break;
             case KEY_F(9):
                 if (ui->selected_process >= 0 && ui->selected_process < (int)count) {
