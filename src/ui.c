@@ -72,14 +72,14 @@ void update_top_panel(UIWindow *ui) {
         struct dirent *entry;
         while ((entry = readdir(dir))) {
             if (isdigit(entry->d_name[0])) {
-                char path[256];
+                char path[512];
                 snprintf(path, sizeof(path), "/proc/%s/stat", entry->d_name);
                 FILE *stat_file = fopen(path, "r");
                 if (stat_file) {
                     char line[256];
                     if (fgets(line, sizeof(line), stat_file)) {
                         int num_threads;
-                        sscanf(line, "%*d %*s %*c %*d %*d %*d %*d %*d %*u %*lu %*lu %*lu %*lu %*lu %*lu %*d %*d %*d %*d %d", &num_threads);
+                        sscanf(line, "%*d %*s %*c %*d %*d %*d %*d %*d %*u %*d %*d %*d %*d %*d %*d %*d %*d %*d %*d %d", &num_threads);
                         total_threads += num_threads;
                     }
                     fclose(stat_file);
@@ -101,21 +101,61 @@ void display_processes(UIWindow *ui, process *p_list, size_t count, SortCriterio
     werase(ui->win);
     box(ui->win, 0, 0);
 
-    int items_per_page = ui->height - 2;
+    int items_per_page = ui->height - 3; // Leave space for header
     int total_pages = (count + items_per_page - 1) / items_per_page;
     int current_page = ui->scroll_offset / items_per_page;
 
+    // Define column widths
+    const int pid_width = 7;    // PID
+    const int state_width = 5;  // STATE
+    const int cpu_width = 6;    // %CPU
+    const int mem_width = 6;    // MEM
+    const int name_width = 20;  // NAME (adjust as needed)
+
+    // Display column headers
+    wattron(ui->win, A_BOLD);
+    mvwprintw(ui->win, 1, 1, "%-*s %-*s %-*s %-*s %-*s",
+              pid_width, "PID",
+              state_width, "STATE",
+              cpu_width, "%CPU",
+              mem_width, "MEM",
+              name_width, "NAME");
+    wattroff(ui->win, A_BOLD);
+
+    // Display processes
     for (int i = ui->scroll_offset; i < count && i < ui->scroll_offset + items_per_page; i++) {
         if (i == ui->selected_process) {
             wattron(ui->win, A_REVERSE);
         }
-        mvwprintw(ui->win, i - ui->scroll_offset + 1, 1, "PID: %d | Name: %s | CPU: %.2f%% | Mem: %lu KB",
-                  p_list[i].pid, p_list[i].name, p_list[i].cpu_usage, p_list[i].memory);
+
+        // Convert memory to human-readable format (KB to MB or GB if large)
+        char mem_str[32];
+        if (p_list[i].memory >= 1024 * 1024) {
+            snprintf(mem_str, sizeof(mem_str), "%.1fG", p_list[i].memory / (1024.0 * 1024.0));
+        } else {
+            snprintf(mem_str, sizeof(mem_str), "%luK", p_list[i].memory / 1024);
+        }
+
+        // Truncate name if too long to fit in the column
+        char truncated_name[21];
+        strncpy(truncated_name, p_list[i].name, name_width);
+        truncated_name[name_width] = '\0'; // Ensure null termination
+
+        // Display process data aligned with columns
+        mvwprintw(ui->win, i - ui->scroll_offset + 2, 1,
+                  "%-*d %-*c %*.1f %-*s %-*s",
+                  pid_width, p_list[i].pid,
+                  state_width, (char)p_list[i].state,
+                  cpu_width, p_list[i].cpu_usage,
+                  mem_width, mem_str,
+                  name_width, truncated_name);
+
         wattroff(ui->win, A_REVERSE);
     }
 
-    mvwprintw(ui->win, 0, 1, "Sort: %s | Page %d/%d", 
-              criterion == SORT_BY_PID ? "PID" : criterion == SORT_BY_NAME ? "Name" : 
+    // Display sort and page info
+    mvwprintw(ui->win, 0, 1, "Sort: %s | Page %d/%d",
+              criterion == SORT_BY_PID ? "PID" : criterion == SORT_BY_NAME ? "Name" :
               criterion == SORT_BY_CPU ? "CPU" : "Mem", current_page + 1, total_pages);
     wrefresh(ui->win);
 }
@@ -375,6 +415,7 @@ void handle_input(UIWindow *ui, process *p_list, size_t count) {
         display_processes(ui, p_list, count, criterion);
     }
 }
+
 void display_process_details_panel(UIWindow *ui, process *proc) {
     int details_width = 70;
     int details_height = 26; // Enough to display all fields
