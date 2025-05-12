@@ -352,6 +352,11 @@ void handle_input(UIWindow *ui, process *p_list, size_t count) {
             case KEY_F(2):
                 display_core_stats_panel(ui);
                 break;
+            case KEY_F(3):
+                if (ui->selected_process >= 0 && ui->selected_process < (int)count) {
+                    display_process_details_panel(ui, &p_list[ui->selected_process]);
+                }
+                break;
             case KEY_F(9):
                 if (ui->selected_process >= 0 && ui->selected_process < (int)count) {
                     if (display_confirmation_panel(ui, p_list[ui->selected_process].pid, p_list[ui->selected_process].name)) {
@@ -368,6 +373,61 @@ void handle_input(UIWindow *ui, process *p_list, size_t count) {
         update_top_panel(ui);
         display_processes(ui, p_list, count, criterion);
     }
+}
+void display_process_details_panel(UIWindow *ui, process *proc) {
+    int details_width = 70;
+    int details_height = 26; // Enough to display all fields
+    WINDOW *details = newwin(details_height, details_width, (ui->height - details_height) / 2 + ui->starty, (ui->width - details_width) / 2);
+    box(details, 0, 0);
+
+    // Center the title and make it bold
+    char title[256];
+    snprintf(title, sizeof(title), "Process Details - PID %d", proc->pid);
+    int title_len = strlen(title);
+    int title_x = (details_width - title_len) / 2;
+    wattron(details, A_BOLD);
+    mvwprintw(details, 1, title_x, "%s", title);
+    wattroff(details, A_BOLD);
+
+    // Solid separator line
+    for (int i = 1; i < details_width - 1; i++) {
+        mvwprintw(details, 2, i, "_");
+    }
+
+    // Display all process fields
+    mvwprintw(details, 3, 1, "Name: %s", proc->name);
+    mvwprintw(details, 4, 1, "State: %c", (char)proc->state);
+    mvwprintw(details, 5, 1, "Memory: %lu KB", proc->memory);
+    mvwprintw(details, 6, 1, "CPU Usage: %.2f%%", proc->cpu_usage);
+    mvwprintw(details, 7, 1, "Parent PID: %d", proc->ppid);
+    mvwprintw(details, 8, 1, "Process Group: %d", proc->pgrp);
+    mvwprintw(details, 9, 1, "Session: %d", proc->session);
+    mvwprintw(details, 10, 1, "TTY Number: %d", proc->tty_nr);
+    mvwprintw(details, 11, 1, "TPGID: %d", proc->tpgid);
+    mvwprintw(details, 12, 1, "Flags: %u", proc->flags);
+    mvwprintw(details, 13, 1, "Minor Faults: %lu", proc->minflt);
+    mvwprintw(details, 14, 1, "Child Minor Faults: %lu", proc->cminflt);
+    mvwprintw(details, 15, 1, "Major Faults: %lu", proc->majflt);
+    mvwprintw(details, 16, 1, "Child Major Faults: %lu", proc->cmajflt);
+    mvwprintw(details, 17, 1, "User Time: %lu", proc->utime);
+    mvwprintw(details, 18, 1, "System Time: %lu", proc->stime);
+    mvwprintw(details, 19, 1, "Priority: %d", proc->priority);
+    mvwprintw(details, 20, 1, "Nice: %d", proc->nice);
+    mvwprintw(details, 21, 1, "Number of Threads: %d", proc->num_threads);
+    mvwprintw(details, 22, 1, "Start Time: %lu", proc->starttime);
+    mvwprintw(details, 23, 1, "Virtual Memory Size: %lu", proc->vsize);
+    mvwprintw(details, 24, 1, "RSS Limit: %lu", proc->rsslim);
+
+    wrefresh(details);
+
+    // Temporarily set blocking mode to wait for key press
+    timeout(-1); // -1 means blocking
+    getch();
+    timeout(100); // Restore non-blocking mode
+
+    delwin(details);
+    touchwin(ui->win);
+    wrefresh(ui->win);
 }
 
 void cleanup_ui(UIWindow *ui) {
