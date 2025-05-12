@@ -121,25 +121,31 @@ void display_processes(UIWindow *ui, process *p_list, size_t count, SortCriterio
 }
 
 void display_help_panel(UIWindow *ui) {
-    int help_width = 50; // Widened window
-    int help_height = 11; // Adjusted for new line
+    int help_width = 70; // Widened window to ensure "F9: Kill Process" fits
+    int help_height = 13;
     WINDOW *help = newwin(help_height, help_width, (ui->height - help_height) / 2 + ui->starty, (ui->width - help_width) / 2);
     box(help, 0, 0);
 
-    // Center the title
+    // Center the title and make it bold
     const char *title = "Help - Key Bindings";
     int title_len = strlen(title);
     int title_x = (help_width - title_len) / 2;
+    wattron(help, A_BOLD);
     mvwprintw(help, 1, title_x, "%s", title);
+    wattroff(help, A_BOLD);
 
-    mvwprintw(help, 2, 1, "------------------");
+    // Solid separator line
+    for (int i = 1; i < help_width - 1; i++) {
+        mvwprintw(help, 2, i, "_");
+    }
+
     mvwprintw(help, 3, 1, "Up/Down: Navigate");
     mvwprintw(help, 4, 1, "PgUp/PgDn: Scroll");
     mvwprintw(help, 5, 1, "p: Sort by PID");
     mvwprintw(help, 6, 1, "n: Sort by Name");
     mvwprintw(help, 7, 1, "c: Sort by CPU");
     mvwprintw(help, 8, 1, "m: Sort by Memory");
-    mvwprintw(help, 9, 1, "F2: Core Stats"); // Added F2 keybinding
+    mvwprintw(help, 9, 1, "F2: Core Stats");
     mvwprintw(help, 10, 1, "F9: Kill Process");
     wrefresh(help);
 
@@ -204,15 +210,26 @@ void display_core_stats_panel(UIWindow *ui) {
     FILE *stat_file = fopen("/proc/stat", "r");
     if (!stat_file) return;
 
-    // Initialize more color pairs for progress bars
-    init_pair(2, COLOR_RED, COLOR_BLACK);    // Red for high usage
-    init_pair(3, COLOR_YELLOW, COLOR_BLACK); // Yellow for medium usage
-    init_pair(4, COLOR_GREEN, COLOR_BLACK);  // Green for low usage
+    // Initialize color pairs for progress bars
+    init_pair(2, COLOR_RED, COLOR_BLACK);    // Red for high usage (>80%)
+    init_pair(3, COLOR_YELLOW, COLOR_BLACK); // Yellow for medium usage (>55%)
+    init_pair(4, COLOR_GREEN, COLOR_BLACK);  // Green for low usage (≤55%)
 
     WINDOW *stats = newwin(20, 60, (ui->height - 20) / 2 + ui->starty, (ui->width - 60) / 2);
     box(stats, 0, 0);
-    mvwprintw(stats, 1, 1, "Core Statistics");
-    mvwprintw(stats, 2, 1, "---------------");
+
+    // Center the title and make it bold
+    const char *title = "Core Statistics";
+    int title_len = strlen(title);
+    int title_x = (60 - title_len) / 2; // Center in a 60-char wide window
+    wattron(stats, A_BOLD);
+    mvwprintw(stats, 1, title_x, "%s", title);
+    wattroff(stats, A_BOLD);
+
+    // Solid separator line
+    for (int i = 1; i < 60 - 1; i++) {
+        mvwprintw(stats, 2, i, "_");
+    }
 
     char line[256];
     int core_num = 0;
@@ -236,9 +253,9 @@ void display_core_stats_panel(UIWindow *ui) {
 
             // Select color based on usage
             int color_pair;
-            if (usage >= 75.0) {
+            if (usage > 80.0) {
                 color_pair = 2; // Red for high usage
-            } else if (usage >= 50.0) {
+            } else if (usage > 55.0) {
                 color_pair = 3; // Yellow for medium usage
             } else {
                 color_pair = 4; // Green for low usage
