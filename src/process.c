@@ -1,4 +1,5 @@
 #include "process.h"
+#include "ui.h"
 
 size_t get_process_count() {
     DIR *dir = opendir("/proc");

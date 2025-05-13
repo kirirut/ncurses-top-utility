@@ -7,9 +7,14 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(SOURCES
-    src/main.c 
+       src/main.c
     src/process.c
     src/ui.c
+    src/panels.c
+    src/input_handler.c
+    src/process_display.c
+    src/top_panel.c
+    
 )
 
 include_directories(include)
